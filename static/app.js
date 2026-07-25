@@ -1,7 +1,6 @@
 let mediaRequestSequence = 0;
 
-function quickFill(region, uid) {
-    document.getElementById('region-select').value = region;
+function quickFill(uid) {
     document.getElementById('uid-input').value = uid;
     document.getElementById('search-form').requestSubmit();
 }
@@ -237,6 +236,43 @@ function formatNumber(num) {
     return Number(num).toLocaleString('en-US');
 }
 
+const REGION_NAMES = {
+    'BD': 'Bangladesh',
+    'SG': 'Singapore',
+    'VN': 'Vietnam',
+    'IND': 'India',
+    'BR': 'Brazil',
+    'US': 'United States',
+    'NA': 'North America',
+    'SAC': 'South America',
+    'ID': 'Indonesia',
+    'RU': 'Russia',
+    'TW': 'Taiwan',
+    'TH': 'Thailand',
+    'ME': 'Middle East',
+    'PK': 'Pakistan',
+    'CIS': 'Commonwealth',
+    'EUROPE': 'Europe',
+    'EU': 'Europe'
+};
+
+function formatRegionName(regionCode) {
+    if (!regionCode) return '--';
+    const code = String(regionCode).toUpperCase();
+    const name = REGION_NAMES[code];
+    return name ? `${name} (${code})` : code;
+}
+
+function formatEnumText(val) {
+    if (!val) return 'N/A';
+    return String(val)
+        .replace(/^Gender_/, '')
+        .replace(/^Language_/, '')
+        .replace(/^ModePrefer_/, '')
+        .replace(/^RankShow_/, '')
+        .replace(/_/g, ' ');
+}
+
 function toggleRawJson() {
     const body = document.getElementById('json-body');
     const arrow = document.getElementById('json-arrow');
@@ -252,7 +288,6 @@ function toggleRawJson() {
 async function handleSearch(event) {
     event.preventDefault();
 
-    const region = document.getElementById('region-select').value;
     const uid = document.getElementById('uid-input').value.trim();
     const btnText = document.querySelector('.btn-text');
     const btnSpinner = document.querySelector('.btn-spinner');
@@ -267,7 +302,7 @@ async function handleSearch(event) {
     errorBanner.style.display = 'none';
 
     try {
-        const response = await fetch(`/player-info?region=${encodeURIComponent(region)}&uid=${encodeURIComponent(uid)}`);
+        const response = await fetch(`/player-info?uid=${encodeURIComponent(uid)}`);
         const data = await response.json();
 
         if (!response.ok || data.error) {
@@ -280,25 +315,42 @@ async function handleSearch(event) {
         const pet = data.petInfo || {};
         const clan = data.clanBasicInfo || {};
         const captain = data.captainBasicInfo || {};
+        const profile = data.profileInfo || {};
+        const diamonds = data.diamondCostRes || {};
+
+        const playerRegion = basic.region || 'BD';
+        const fullRegionName = formatRegionName(playerRegion);
 
         // Top Summary Header
-        document.getElementById('hdr-nickname').textContent = basic.nickname || 'N/A';
-        document.getElementById('hdr-level').textContent = basic.level || '--';
-        document.getElementById('hdr-likes').textContent = formatNumber(basic.liked);
-        document.getElementById('hdr-id-open').textContent = formatFullDateOnly(basic.createAt);
+        const hdrNicknameEl = document.getElementById('hdr-nickname');
+        const hdrLevelEl = document.getElementById('hdr-level');
+        const hdrLikesEl = document.getElementById('hdr-likes');
+        const hdrRegionEl = document.getElementById('hdr-region');
+        const hdrIdOpenEl = document.getElementById('hdr-id-open');
+
+        if (hdrNicknameEl) hdrNicknameEl.textContent = basic.nickname || 'N/A';
+        if (hdrLevelEl) hdrLevelEl.textContent = basic.level || '--';
+        if (hdrLikesEl) hdrLikesEl.textContent = formatNumber(basic.liked);
+        if (hdrRegionEl) hdrRegionEl.textContent = fullRegionName;
+        if (hdrIdOpenEl) hdrIdOpenEl.textContent = formatFullDateOnly(basic.createAt);
 
         // Load the locally served banner made from official Free Fire item assets.
         // The existing canvas renderer remains as the final no-network fallback.
-        void renderDynamicPlayerBanner(data, basic, clan, uid, region);
+        void renderDynamicPlayerBanner(data, basic, clan, uid, playerRegion);
 
         // 1. ACCOUNT INFO
         document.getElementById('val-uid').textContent = basic.accountId || uid;
         document.getElementById('val-name').textContent = basic.nickname || 'N/A';
         document.getElementById('val-level').textContent = basic.level || '0';
-        document.getElementById('val-region').textContent = basic.region || region;
+        if (document.getElementById('val-exp')) document.getElementById('val-exp').textContent = basic.exp ? formatNumber(basic.exp) : '0';
+        document.getElementById('val-region').textContent = fullRegionName;
         document.getElementById('val-likes').textContent = formatNumber(basic.liked);
+        if (document.getElementById('val-gender')) document.getElementById('val-gender').textContent = formatEnumText(social.gender);
+        if (document.getElementById('val-language')) document.getElementById('val-language').textContent = formatEnumText(social.language);
+        if (document.getElementById('val-mode-pref')) document.getElementById('val-mode-pref').textContent = formatEnumText(social.modePrefer);
         document.getElementById('val-season').textContent = basic.seasonId || 'N/A';
         document.getElementById('val-credit').textContent = credit.creditScore ? `${credit.creditScore}` : '100';
+        if (document.getElementById('val-pin-id')) document.getElementById('val-pin-id').textContent = basic.pinId || 'N/A';
         document.getElementById('val-title').textContent = basic.title || 'N/A';
         document.getElementById('val-bio').textContent = social.signature || 'N/A';
 
@@ -309,12 +361,18 @@ async function handleSearch(event) {
         document.getElementById('val-cs-pts').textContent = formatNumber(basic.csRankingPoints);
         document.getElementById('val-cs-rank').textContent = basic.csRank ? `${basic.csRank}` : 'N/A';
         document.getElementById('val-cs-max').textContent = basic.csMaxRank ? `${basic.csMaxRank}` : 'N/A';
+        if (document.getElementById('val-diamonds')) document.getElementById('val-diamonds').textContent = diamonds.diamondCost !== undefined ? `${formatNumber(diamonds.diamondCost)} Diamonds` : 'N/A';
+        if (document.getElementById('val-rank-show')) document.getElementById('val-rank-show').textContent = formatEnumText(social.rankShow);
         document.getElementById('val-created-at').textContent = formatFullDateTime(basic.createAt);
         document.getElementById('val-last-login').textContent = formatFullDateTime(basic.lastLoginAt);
 
         // 3. ACCOUNT OVERVIEW
         document.getElementById('val-avatar-id').textContent = basic.headPic || 'N/A';
         document.getElementById('val-banner-id').textContent = basic.bannerId || 'N/A';
+        if (document.getElementById('val-char-id')) document.getElementById('val-char-id').textContent = profile.avatarId || 'N/A';
+        if (document.getElementById('val-char-awaken')) document.getElementById('val-char-awaken').textContent = profile.isSelectedAwaken ? 'Yes' : 'No';
+        if (document.getElementById('val-clothes-cnt')) document.getElementById('val-clothes-cnt').textContent = Array.isArray(profile.clothes) ? `${profile.clothes.length} items` : 'N/A';
+        if (document.getElementById('val-skills-cnt')) document.getElementById('val-skills-cnt').textContent = Array.isArray(profile.equipedSkills) ? `${Math.floor(profile.equipedSkills.length / 4)} equipped` : 'N/A';
         document.getElementById('val-bp-badges').textContent = basic.badgeCnt || '0';
         document.getElementById('val-bp-id').textContent = basic.badgeId || 'N/A';
         document.getElementById('val-acc-type').textContent = basic.accountType !== undefined ? basic.accountType : '1';

@@ -31,28 +31,6 @@
             <div class="search-section">
                 <form id="search-form" onsubmit="handleSearch(event)">
                     <div class="search-row">
-                        <div class="field-group region-field">
-                            <label for="region-select"><i class="fa-solid fa-globe"></i> Region</label>
-                            <select id="region-select" required>
-                                <option value="BD" selected>BD - Bangladesh</option>
-                                <option value="SG">SG - Singapore</option>
-                                <option value="VN">VN - Vietnam</option>
-                                <option value="IND">IND - India</option>
-                                <option value="BR">BR - Brazil</option>
-                                <option value="US">US - United States</option>
-                                <option value="NA">NA - North America</option>
-                                <option value="SAC">SAC - South America</option>
-                                <option value="ID">ID - Indonesia</option>
-                                <option value="RU">RU - Russia</option>
-                                <option value="TW">TW - Taiwan</option>
-                                <option value="TH">TH - Thailand</option>
-                                <option value="ME">ME - Middle East</option>
-                                <option value="PK">PK - Pakistan</option>
-                                <option value="CIS">CIS - Commonwealth</option>
-                                <option value="EUROPE">EUROPE - Europe</option>
-                            </select>
-                        </div>
-
                         <div class="field-group uid-field">
                             <label for="uid-input"><i class="fa-solid fa-id-card"></i> Player UID</label>
                             <div class="input-action-wrap">
@@ -68,9 +46,9 @@
 
                 <div class="sample-chips">
                     <span>Try UIDs:</span>
-                    <button type="button" class="chip-btn" onclick="quickFill('BD', '4422076728')">BD: 4422076728</button>
-                    <button type="button" class="chip-btn" onclick="quickFill('SG', '338277714')">SG: 338277714</button>
-                    <button type="button" class="chip-btn" onclick="quickFill('VN', '3686689562')">VN: 3686689562</button>
+                    <button type="button" class="chip-btn" onclick="quickFill('4422076728')">4422076728</button>
+                    <button type="button" class="chip-btn" onclick="quickFill('338277714')">338277714</button>
+                    <button type="button" class="chip-btn" onclick="quickFill('3686689562')">3686689562</button>
                 </div>
             </div>
 
@@ -81,7 +59,7 @@
             <div id="initial-placeholder" class="placeholder-box">
                 <i class="fa-solid fa-gamepad placeholder-icon"></i>
                 <h3>Free Fire Player Inspector</h3>
-                <p>Select a region and enter any Free Fire player UID to load live profile statistics.</p>
+                <p>Enter any Free Fire player UID to load live profile statistics.</p>
             </div>
 
             <!-- Results Section -->
@@ -94,6 +72,8 @@
                         <span>Level <strong id="hdr-level">--</strong></span>
                         <span class="meta-dot">•</span>
                         <span>Likes <strong id="hdr-likes">--</strong></span>
+                        <span class="meta-dot">•</span>
+                        <span>Region <strong id="hdr-region">--</strong></span>
                     </div>
                     <div class="id-open-pill">
                         <i class="fa-regular fa-calendar-check"></i> Id open: <span id="hdr-id-open">--</span>
@@ -121,10 +101,15 @@
                             <li><span class="lbl">UID:</span> <strong id="val-uid">--</strong></li>
                             <li><span class="lbl">Name:</span> <strong id="val-name">--</strong></li>
                             <li><span class="lbl">Level:</span> <strong id="val-level">--</strong></li>
+                            <li><span class="lbl">EXP:</span> <strong id="val-exp">--</strong></li>
                             <li><span class="lbl">Region:</span> <strong id="val-region">--</strong></li>
                             <li><span class="lbl">Likes:</span> <strong id="val-likes">--</strong></li>
+                            <li><span class="lbl">Gender:</span> <strong id="val-gender">--</strong></li>
+                            <li><span class="lbl">Language:</span> <strong id="val-language">--</strong></li>
+                            <li><span class="lbl">Preferred Mode:</span> <strong id="val-mode-pref">--</strong></li>
                             <li><span class="lbl">Season ID:</span> <strong id="val-season">--</strong></li>
                             <li><span class="lbl">Credit Score:</span> <strong id="val-credit">--</strong></li>
+                            <li><span class="lbl">Pin ID:</span> <strong id="val-pin-id">--</strong></li>
                             <li><span class="lbl">Title:</span> <strong id="val-title">--</strong></li>
                             <li><span class="lbl">Bio:</span> <strong id="val-bio" class="bio-text">--</strong></li>
                         </ul>
@@ -143,20 +128,26 @@
                             <li><span class="lbl">CS Rank Points:</span> <strong id="val-cs-pts">--</strong></li>
                             <li><span class="lbl">CS Rank:</span> <strong id="val-cs-rank">--</strong></li>
                             <li><span class="lbl">CS Max Rank:</span> <strong id="val-cs-max">--</strong></li>
+                            <li><span class="lbl">Diamond Spent:</span> <strong id="val-diamonds">--</strong></li>
+                            <li><span class="lbl">Rank Show Pref:</span> <strong id="val-rank-show">--</strong></li>
                             <li><span class="lbl">Created At:</span> <strong id="val-created-at">--</strong></li>
                             <li><span class="lbl">Last Login:</span> <strong id="val-last-login">--</strong></li>
                         </ul>
                     </div>
 
-                    <!-- 3. ACCOUNT OVERVIEW -->
+                    <!-- 3. ACCOUNT & CHARACTER OVERVIEW -->
                     <div class="info-card">
                         <div class="card-header">
                             <i class="fa-solid fa-list-check icon-orange"></i>
                             <h3>ACCOUNT OVERVIEW</h3>
                         </div>
                         <ul class="data-list">
-                            <li><span class="lbl">Avatar ID:</span> <strong id="val-avatar-id">--</strong></li>
+                            <li><span class="lbl">Avatar (Head Pic):</span> <strong id="val-avatar-id">--</strong></li>
                             <li><span class="lbl">Banner ID:</span> <strong id="val-banner-id">--</strong></li>
+                            <li><span class="lbl">Character Model ID:</span> <strong id="val-char-id">--</strong></li>
+                            <li><span class="lbl">Awaken Selected:</span> <strong id="val-char-awaken">--</strong></li>
+                            <li><span class="lbl">Equipped Clothes:</span> <strong id="val-clothes-cnt">--</strong></li>
+                            <li><span class="lbl">Equipped Skills:</span> <strong id="val-skills-cnt">--</strong></li>
                             <li><span class="lbl">BP Badges:</span> <strong id="val-bp-badges">--</strong></li>
                             <li><span class="lbl">BP ID:</span> <strong id="val-bp-id">--</strong></li>
                             <li><span class="lbl">Account Type:</span> <strong id="val-acc-type">--</strong></li>

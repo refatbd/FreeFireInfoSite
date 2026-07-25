@@ -146,6 +146,8 @@ async def GetAccountInformation(uid, unk, region, endpoint):
 
 
 
+GATEWAY_REGIONS = ["BD", "SG", "IND", "BR", "VN", "ID", "TH", "TW"]
+
 def normalize_region(region: str) -> str:
     value = str(region or "").strip().upper()
     value = REGION_ALIASES.get(value, value)
@@ -154,21 +156,62 @@ def normalize_region(region: str) -> str:
     return value
 
 
-def get_player_data(uid: str, region: str):
+def get_player_data(uid: str, region: str = None):
     safe_uid = validate_uid(uid)
-    safe_region = normalize_region(region)
-    cache_key = (safe_region, safe_uid)
-    with player_data_cache_lock:
-        cached_player = player_data_cache.get(cache_key)
-    if cached_player is not None:
-        return cached_player, safe_uid, safe_region
+    
+    if region:
+        safe_region = normalize_region(region)
+        cache_key = (safe_region, safe_uid)
+        with player_data_cache_lock:
+            cached_player = player_data_cache.get(cache_key)
+        if cached_player is not None:
+            return cached_player, safe_uid, safe_region
 
-    player_data = asyncio.run(
-        GetAccountInformation(safe_uid, "7", safe_region, "/GetPlayerPersonalShow")
-    )
-    with player_data_cache_lock:
-        player_data_cache[cache_key] = player_data
-    return player_data, safe_uid, safe_region
+        player_data = asyncio.run(
+            GetAccountInformation(safe_uid, "7", safe_region, "/GetPlayerPersonalShow")
+        )
+        basic = player_data.get("basicInfo") or {}
+        if not basic.get("nickname"):
+            raise ValueError(f"No player found for UID '{safe_uid}' in region {safe_region}.")
+        with player_data_cache_lock:
+            player_data_cache[cache_key] = player_data
+        return player_data, safe_uid, safe_region
+    else:
+        # Check cache for any cached region entry matching safe_uid
+        with player_data_cache_lock:
+            for (cached_reg, cached_u), data in player_data_cache.items():
+                if cached_u == safe_uid:
+                    return data, safe_uid, cached_reg
+
+        # Auto-detect region across gateway clusters concurrently
+        async def _find_auto():
+            async def _try_reg(reg):
+                try:
+                    res = await GetAccountInformation(safe_uid, "7", reg, "/GetPlayerPersonalShow")
+                    basic = res.get("basicInfo") or {}
+                    if basic and basic.get("nickname"):
+                        det_reg = basic.get("region") or reg
+                        return res, det_reg
+                except Exception:
+                    pass
+                return None
+
+            tasks = [_try_reg(r) for r in GATEWAY_REGIONS]
+            results = await asyncio.gather(*tasks)
+            for res in results:
+                if res is not None:
+                    return res
+            return None
+
+        result = asyncio.run(_find_auto())
+        if not result:
+            raise ValueError(f"Player account not found for UID '{safe_uid}'.")
+
+        player_data, safe_region = result
+        cache_key = (safe_region, safe_uid)
+        with player_data_cache_lock:
+            player_data_cache[cache_key] = player_data
+        return player_data, safe_uid, safe_region
 
 
 def media_response(rendered):
@@ -192,9 +235,6 @@ def get_account_info():
 
     if not uid:
         return jsonify({"error": "Please provide UID."}), 400
-
-    if not region:
-        return jsonify({"error": "Please provide REGION."}), 400
 
     try:
         return_data, safe_uid, safe_region = get_player_data(uid, region)
@@ -220,7 +260,7 @@ def get_account_info():
 
 @app.route('/api/banner/banner_<uid>.webp')
 def get_player_banner(uid):
-    region = request.args.get('region', 'BD')
+    region = request.args.get('region')
     try:
         player_data, _, _ = get_player_data(uid, region)
         return media_response(render_player_banner(player_data))
@@ -234,7 +274,7 @@ def get_player_banner(uid):
 
 @app.route('/api/avatar/avatar_<uid>.webp')
 def get_player_avatar(uid):
-    region = request.args.get('region', 'BD')
+    region = request.args.get('region')
     try:
         player_data, _, _ = get_player_data(uid, region)
         return media_response(render_player_avatar(player_data))
