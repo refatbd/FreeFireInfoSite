@@ -5,6 +5,18 @@ All notable changes to the **Free Fire Info Site — Official Dynamic Media Edit
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-08-21
+
+### Added
+- **Server Startup Token Warmup**: Automatic asynchronous pre-warming of JWT tokens across all supported regional Free Fire clusters on local server launch (`asyncio.run(initialize_tokens())`), eliminating first-request latency.
+- **Background Daemon Token Refresher**: Background thread (`start_token_refresher`) automatically refreshing regional gateway authentication tokens every 7 hours (`25200s`) to ensure zero token expiration downtime.
+
+### Changed
+- **Optimized HTTP Transport Headers**: Cleaned up manual connection management headers (`Expect: 100-continue`, `Connection: Keep-Alive`, `Accept-Encoding: gzip`) in `create_jwt` and `GetAccountInformation` for robust compatibility across proxy gateways and modern HTTP clients.
+- **Protobuf & Python Compatibility**: Enhanced dependency definitions and cross-runtime compatibility with Python 3.10 through 3.14.
+
+---
+
 ## [2.0.0] - 2026-07-24
 
 ### Added

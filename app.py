@@ -93,9 +93,8 @@ async def create_jwt(region: str):
         proto_bytes = await json_to_proto(body, FreeFire_pb2.LoginReq())
         payload = aes_cbc_encrypt(MAIN_KEY, MAIN_IV, proto_bytes)
         url = "https://loginbp.ggblueshark.com/MajorLogin"
-        headers = {'User-Agent': USERAGENT, 'Connection': "Keep-Alive", 'Accept-Encoding': "gzip",
-                   'Content-Type': "application/octet-stream", 'Expect': "100-continue", 'X-Unity-Version': "2018.4.11f1",
-                   'X-GA': "v1 1", 'ReleaseVersion': RELEASEVERSION}
+        headers = {'User-Agent': USERAGENT, 'Content-Type': "application/octet-stream",
+                   'X-Unity-Version': "2018.4.11f1", 'X-GA': "v1 1", 'ReleaseVersion': RELEASEVERSION}
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, data=payload, headers=headers)
             msg = json.loads(json_format.MessageToJson(decode_protobuf(resp.content, FreeFire_pb2.LoginRes)))
@@ -112,17 +111,25 @@ async def initialize_tokens():
     tasks = [create_jwt(r) for r in SUPPORTED_REGIONS]
     await asyncio.gather(*tasks, return_exceptions=True)
 
-async def refresh_tokens_periodically():
-    while True:
-        await asyncio.sleep(25200)
-        await initialize_tokens()
+def start_token_refresher():
+    def _loop():
+        while True:
+            time.sleep(25200)
+            try:
+                asyncio.run(initialize_tokens())
+                print("[INFO] Regional tokens refreshed periodically.")
+            except Exception as e:
+                print(f"[WARN] Periodic token refresh error: {e}")
+
+    refresher_thread = threading.Thread(target=_loop, daemon=True)
+    refresher_thread.start()
 
 async def get_token_info(region: str) -> Tuple[str,str,str]:
     info = cached_tokens.get(region)
     if info and time.time() < info['expires_at']:
         return info['token'], info['region'], info['server_url']
     await create_jwt(region)
-    info = cached_tokens.get(region)
+    info = cached_tokens[region]
     if not info:
         raise RuntimeError(f"Failed to acquire token for region {region}")
     return info['token'], info['region'], info['server_url']
@@ -136,14 +143,12 @@ async def GetAccountInformation(uid, unk, region, endpoint):
     token, lock, server = await get_token_info(region)
     if not server.startswith("http://") and not server.startswith("https://"):
         server = "https://" + server
-    headers = {'User-Agent': USERAGENT, 'Connection': "Keep-Alive", 'Accept-Encoding': "gzip",
-               'Content-Type': "application/octet-stream", 'Expect': "100-continue",
+    headers = {'User-Agent': USERAGENT, 'Content-Type': "application/octet-stream",
                'Authorization': token, 'X-Unity-Version': "2018.4.11f1", 'X-GA': "v1 1",
                'ReleaseVersion': RELEASEVERSION}
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(server+endpoint, data=data_enc, headers=headers)
         return json.loads(json_format.MessageToJson(decode_protobuf(resp.content, AccountPersonalShow_pb2.AccountPersonalShowInfo)))
-
 
 
 GATEWAY_REGIONS = ["BD", "SG", "IND", "BR", "VN", "ID", "TH", "TW"]
@@ -295,6 +300,16 @@ def refresh_tokens_endpoint():
         return jsonify({'error': f'Refresh failed: {e}'}),500
 
 if __name__ == '__main__':
+    print("[*] Pre-warming regional tokens across all Free Fire gateways...")
+    try:
+        asyncio.run(initialize_tokens())
+        print(f"[✓] Tokens successfully initialized for {len(cached_tokens)} regions.")
+    except Exception as e:
+        print(f"[!] Warning during initial token warmup: {e}")
+
+    start_token_refresher()
+    print("[*] Free Fire Info Site server starting on http://localhost:5000")
     app.run(host='0.0.0.0', port=5000, debug=False)
+
 
 
